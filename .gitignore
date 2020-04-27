@@ -129,4 +129,8 @@ dataset/
 __MACOSX/
 photobook_dataset/discriminator_data_full.zip
 photobook_dataset/dataset.pickle
+photobook_dataset/discriminator/data
+photobook_dataset/discriminator/model_blind_accs_2019-02-17-21-18-7.pkl
+photobook_dataset/discriminator/model_history_blind_accs_2019-02-20-14-22-23.pkl
+photobook_dataset/discriminator/model_history_noimg_accs_2019-03-01-14-25-34.pkl
 
