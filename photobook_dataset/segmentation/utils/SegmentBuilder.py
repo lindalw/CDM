@@ -1,4 +1,4 @@
-from utils.UtteranceTokenizer import UtteranceTokenizer
+from UtteranceTokenizer import UtteranceTokenizer
 
 class SegmentBuilder():
     def __init__(self, ):
