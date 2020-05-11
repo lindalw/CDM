@@ -15,8 +15,8 @@ import sys
 from os.path import dirname, abspath
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
-from utils.SegmentDataset import SegmentDataset
-from utils.Vocab import Vocab
+from SegmentDataset import SegmentDataset
+from Vocab import Vocab
 
 import datetime
 
@@ -237,7 +237,6 @@ def evaluate(split_data_loader, dataset, breaking, normalize, mask, img_dim,\
 # provides extra details about the results (rank-related etc.)
 
 def gold_evaluate(split_data_loader, dataset, breaking, normalize, mask, img_dim, model, seg2ranks, device, criterion, threshold, weight):
-
     losses = []
     count = 0
 
@@ -253,72 +252,84 @@ def gold_evaluate(split_data_loader, dataset, breaking, normalize, mask, img_dim
     non_match_0 = 0  # actually 1 but predicted as 0
 
     segment_rank_res = dict()
-
+    # ii is index of this iteration. Data contains segment, 
     for ii, data in enumerate(split_data_loader):
-
+        # What the 'round', but then rank is of this of this segment in the chain
         segment_ranks = seg2ranks[str(ii)]
 
+        # Create a dict to get the number of matches for segments sorted by rank
         for segment_rank in segment_ranks:
             if segment_rank not in segment_rank_res:
                 segment_rank_res[segment_rank] = {'matching_0': 0.0, 'matching_1': 0.0, \
                                                   'non_match_0': 0.0, 'non_match_1': 0.0, \
                                                   'normalizer_01': 0.0}
 
-
+        # Is false
         if breaking and count == 5:
             break
-
         count += 1
 
+        # Encoded segment e.g. tensor([[  4,  12,  22,   7,  13,   8, 12,  31]])
         segments_text = torch.tensor(data['segment'])
-
+        # How many segments it has gone through
         normalizer += segments_text.shape[0]
 
+        # number of images
         image_set = data['image_set']
         no_images = image_set.shape[1]
 
+        # idk, maybe if there are more segments? aah maybe with larger batchsize that is now set at 1
         actual_no_images = []
-
         for s in range(image_set.shape[0]):
+            # I think if an image has number 0, which leads to features of all zero. Maybe its some form of padding?
             actual_no_images.append(len(image_set[s].nonzero()))
 
+        # batchsize (i.e. how many segments in one data thingy)
         temp_batch_size = data['segment'].shape[0]
-
+        # Context sum in shape of batch, imgdim, i.e. (1, 2048), sum of the feature values of all images together
         context_sum = torch.zeros(temp_batch_size, img_dim).to(device)
-
+        # Context separate in shape (1, imageset[0], 2048)
         context_separate = torch.zeros(temp_batch_size, image_set.shape[1], img_dim).to(device)
 
+        # for each batch (i.e. just one)
         for b in range(image_set.shape[0]):
-
+            # for each image that is shown in this round
             for i in range(image_set[b].shape[0]):
-
+                # Image id in string
                 img_id = str(image_set[b][i].item())
 
                 if img_id != '0':
-
+                    # Get image features shape=[2048]
                     img_features = torch.Tensor(dataset.image_features[img_id]).to(device)
-
+                    # Add image features to the context_sum (sum of the feature values for all images shown in the round)
                     context_sum[b] += img_features
-
                 else:
-
+                    # If img_id is 0, set all image feature values at zero shape=[2048]
                     img_features = torch.zeros(img_dim).to(device)
 
+                # Append image features to context_separate (1, num_images_shown, 2048)
                 context_separate[b][i] = img_features
 
-        lengths = data['length']
-        targets = data['targets'].view(temp_batch_size, no_images, 1).float()
+        lengths = data['length'] # segment length
+        targets = data['targets'].view(temp_batch_size, no_images, 1).float() # unsqueeze to (1,num_img_shown, 1)
 
+        # output for the encoded segment, summated and separate feature values of the images shown
+        # shape=(1, num of images shown, 1)
         out = model(segments_text, lengths, context_separate, context_sum, normalize)
 
+        # TODO: fix this
+        # Something with if there is an image with img_id=0? Replace those with veeeeery small number (-1e30)?
         if mask:
             out = mask_attn(out, actual_no_images, no_images, device)
 
+        # Sigmoid over the output
         sig_out = torch.sigmoid(out)
-
+        # Loss value
         loss = criterion(out, targets)
 
+        # Old (and dangerous) way of doing detach()
         preds = sig_out.data
+        # Set all values <threshold (i.e. .5) at 0, otherwise 1
         preds[preds >= threshold] = 1
         preds[preds < threshold] = 0
 
@@ -565,6 +576,88 @@ def gold_evaluate_write(split_data_loader, dataset, breaking, normalize, mask, i
 
 
             print(matching, normalizer)
+
+
+def predict(split_data_loader, dataset, breaking, normalize, mask, img_dim, model, seg2ranks, device, criterion, threshold, weight):
+
+    losses = []
+
+    segment_rank_res = dict()
+    # ii is index of this iteration. Data contains segment, 
+    for ii, data in enumerate(split_data_loader):
+        # What the 'round', but then rank is of this of this segment in the chain
+        segment_ranks = seg2ranks[str(ii)]
+
+        # Encoded segment e.g. tensor([[  4,  12,  22,   7,  13,   8, 12,  31]])
+        segments_text = torch.tensor(data['segment'])
+
+        # number of images
+        image_set = data['image_set']
+        no_images = image_set.shape[1]
+
+        # idk, maybe if there are more segments? aah maybe with larger batchsize that is now set at 1
+        actual_no_images = []
+        for s in range(image_set.shape[0]):
+            # I think if an image has number 0, which leads to features of all zero. Maybe its some form of padding?
+            actual_no_images.append(len(image_set[s].nonzero()))
+
+        # batchsize (i.e. how many segments in one data thingy)
+        temp_batch_size = data['segment'].shape[0]
+        # Context sum in shape of batch, imgdim, i.e. (1, 2048), sum of the feature values of all images together
+        context_sum = torch.zeros(temp_batch_size, img_dim).to(device)
+        # Context separate in shape (1, imageset[0], 2048)
+        context_separate = torch.zeros(temp_batch_size, image_set.shape[1], img_dim).to(device)
+
+        # for each batch (i.e. just one)
+        for b in range(image_set.shape[0]):
+            # for each image that is shown in this round
+            for i in range(image_set[b].shape[0]):
+                # Image id in string
+                img_id = str(image_set[b][i].item())
+
+                if img_id != '0':
+                    # Get image features shape=[2048]
+                    img_features = torch.Tensor(dataset.image_features[img_id]).to(device)
+                    # Add image features to the context_sum (sum of the feature values for all images shown in the round)
+                    context_sum[b] += img_features
+                else:
+                    # If img_id is 0, set all image feature values at zero shape=[2048]
+                    img_features = torch.zeros(img_dim).to(device)
+
+                # Append image features to context_separate (1, num_images_shown, 2048)
+                context_separate[b][i] = img_features
+
+        lengths = data['length'] # segment length
+        targets = data['targets'].view(temp_batch_size, no_images, 1).float() # unsqueeze to (1,num_img_shown, 1)
+
+        # output for the encoded segment, summated and separate feature values of the images shown
+        # shape=(1, num of images shown, 1)
+        out = model(segments_text, lengths, context_separate, context_sum, normalize)
+
+        # TODO: fix this? Now just ignores the warning
+        # Something with if there is an image with img_id=0? Replace those with veeeeery small number (-1e30)?
+        if mask:
+            out = mask_attn(out, actual_no_images, no_images, device)
+
+        # Sigmoid over the output
+        sig_out = torch.sigmoid(out)
+        # Loss value
+        loss = criterion(out, targets)
+
+        # Old (and dangerous) way of doing detach()
+        preds = sig_out.data
+        # Set all values <threshold (i.e. .5) at 0, otherwise 1
+        preds[preds >= threshold] = 1
+        preds[preds < threshold] = 0
+
+        # Save the predictions, loss and the ranks the segment occurs in
+        # to the dataset with this index
+        dataset[ii]['preds'] = preds
+        dataset[ii]['loss'] = loss
+        dataset[ii]['ranks'] = segment_ranks
+
+    return dataset
+
 
 if __name__ == '__main__':
 

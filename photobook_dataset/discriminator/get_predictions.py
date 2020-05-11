@@ -1,6 +1,9 @@
 import json
 import numpy as np
 
+import warnings
+warnings.simplefilter("ignore", UserWarning)
+
 import torch
 from torch import nn
 from models.model_nohistory import DiscriminatoryModelBlind
@@ -131,6 +134,11 @@ def get_BCEloss_funct(weighting, pos_weight):
     return criterion
 
 def get_segment_dataset(batch_size=1, data_dir='data/', segment_file='segments.json', vectors_file='vectors.json', split='test', device='cpu'):
+    """
+    Get segment dataset that contains segments with:
+    dataset['segment']: encoded segment (e.g. [3, 19, 5, 23])
+    dataset['image_set']: 
+    """
     testset = SegmentDataset(
         data_dir=data_dir,
         segment_file=segment_file,
@@ -146,6 +154,9 @@ def get_segment_dataset(batch_size=1, data_dir='data/', segment_file='segments.j
 
 
 def get_history_dataset(batch_size=1, data_dir='data/', segment_file='test_segments.json', vectors_file='vectors.json', chain_file='test_chains.json', split='test', device='cpu'):
+    """
+    TODO: understand the history dataset
+    """
     testset_hist = HistoryDataset(
         data_dir=data_dir,
         segment_file=segment_file,
@@ -183,28 +194,24 @@ def get_predictions(model_name='History', models_dict=False):
     print('Loaded seg2ranks and idlist')
 
     # Get parameters? Why not just use args?
-    embedding_dim = 512
-    hidden_dim = 512
+    # TODO: put in a dict?
     img_dim = 2048
     threshold = 0.5
-    # shuffle = args.shuffle
     normalize = args.normalize
-    # mask = args.mask
-    mask = False
-    weighting = args.weighting
+    mask = args.mask
     weight = args.weight
-    breaking = args.breaking
     weights = torch.Tensor([weight]).to(device)
-    learning_rate = args.learning_rate
     batch_size = 1
+    print(f"params. normalize={args.normalize}, mask={args.mask}, weight={args.weight}, weighting={args.weighting}, batchsize={batch_size}, breaking={args.breaking}")
 
     # Get (weighted) loss function
     criterion = get_BCEloss_funct(weighting=args.weighting, pos_weight=weights)
 
     # Get segment dataset
+    print(f"Dataparams. data_dir={args.data_path}, segmentfile={args.segment_file}, vectorfile={args.vectors_file}, chains_file={args.chains_file}")
+    # testset, test_loader = get_segment_dataset(data_dir='data/', segment_file='segments.json', vectors_file='vectors.json', split='test')
     testset, test_loader = get_segment_dataset(batch_size=batch_size, data_dir=args.data_path, segment_file=args.segment_file,
                                                  vectors_file=args.vectors_file, split='test', device=device)
-    # testset, test_loader = get_segment_dataset(data_dir='data/', segment_file='segments.json', vectors_file='vectors.json', split='test')
 
     # Get history dataset
     # testset_hist, test_hist_loader = get_history_dataset(batch_size=1, data_dir='data/', segment_file='test_segments.json', vectors_file='vectors.json', chain_file='test_chains.json', split='test', device='cpu')
@@ -213,44 +220,31 @@ def get_predictions(model_name='History', models_dict=False):
                                                          split='test', device=device)
 
     # TODO: Change eval to just the predictions
+    dataset_pred = False
     with torch.no_grad():
         model.eval()
         print('\nGold Eval')
 
         if model_name == 'No history':
-            rank_p_1, rank_r_1, rank_p_0, rank_r_0, segment_rank_res = train_nohistory.gold_evaluate(test_loader, testset, breaking, normalize, mask, img_dim, model, seg2ranks, device, criterion, threshold, weight)
-
+            print('predict no history')
+            # The predict function returns the dataset with added predicions, loss and rank
+            # rank_p_1, rank_r_1, rank_p_0, rank_r_0, segment_rank_res = train_nohistory.gold_evaluate(test_loader, testset, args.breaking, normalize, mask, img_dim, model, seg2ranks, device, criterion, threshold, weight)
+            dataset_pred = train_nohistory.predict(test_loader, testset, args.breaking, normalize, mask, img_dim, model, seg2ranks, device, criterion, threshold, weight)
+            print(dataset_pred[0])
         elif model_name == 'History':
-            rank_p_1, rank_r_1, rank_p_0, rank_r_0, segment_rank_res = train_history.gold_evaluate(test_hist_loader, testset_hist, breaking, normalize, mask, img_dim, model, seg2ranks, id_list, device, criterion, threshold, weight)
-
+            # TODO: make prediction function (see no history predict)
+            rank_p_1, rank_r_1, rank_p_0, rank_r_0, segment_rank_res = train_history.gold_evaluate(test_hist_loader, testset_hist, args.breaking, normalize, mask, img_dim, model, seg2ranks, id_list, device, criterion, threshold, weight)
         elif model_name == 'No image':
-            rank_p_1, rank_r_1, rank_p_0, rank_r_0, segment_rank_res = train_history_noimg.gold_evaluate(test_hist_loader, testset_hist, breaking, normalize, mask, img_dim, model, seg2ranks, id_list, device, criterion, threshold, weight)
+            # TODO: make prediction function (see no history predict)
+            rank_p_1, rank_r_1, rank_p_0, rank_r_0, segment_rank_res = train_history_noimg.gold_evaluate(test_hist_loader, testset_hist, args.breaking, normalize, mask, img_dim, model, seg2ranks, id_list, device, criterion, threshold, weight)
 
+    return dataset_pred
 
-    return False
-
-
-# def mask_attn(scores, actual_num_images, max_num_images, device):
-#     masks = []
-
-#     for n in range(len(actual_num_images)):
-#         mask = [1] * actual_num_images[n] + [0] * (max_num_images - actual_num_images[n])
-#         masks.append(mask)
-
-#     masks = torch.tensor(masks).unsqueeze(2).byte().to(device)
-#     scores.masked_fill_(1 - masks, float(-1e30))
-#     return scores
-
-
-
-# # Model files
-# model_files = ['model_blind_accs_2019-02-17-21-18-7.pkl','model_history_blind_accs_2019-02-20-14-22-23.pkl',  'model_history_noimg_accs_2019-03-01-14-25-34.pkl']
-# model_name_abbrv = {'model_history_blind_accs_2019-02-20-14-22-23.pkl':'History',
-#                'model_blind_accs_2019-02-17-21-18-7.pkl':'No history',
-#                     'model_history_noimg_accs_2019-03-01-14-25-34.pkl': 'No image'}
 
 models_dict = {'History':'model_history_blind_accs_2019-02-20-14-22-23.pkl',
             'No history': 'model_blind_accs_2019-02-17-21-18-7.pkl',
                 'No image': 'model_history_noimg_accs_2019-03-01-14-25-34.pkl'}
 
-get_predictions(model_name='History', models_dict=models_dict)
+dataset_pred = get_predictions(model_name='No history', models_dict=models_dict)
+breakpoint()
+print('done')

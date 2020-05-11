@@ -15,8 +15,8 @@ import sys
 from os.path import dirname, abspath
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
-from utils.HistoryDataset import HistoryDataset
-from utils.Vocab import Vocab
+from HistoryDataset import HistoryDataset
+from Vocab import Vocab
 
 import datetime
 
@@ -819,3 +819,240 @@ if __name__ == '__main__':
              else:
                  prev_f1 = current_f1
                  prev_loss = current_loss
+
+
+def predict(split_data_loader, dataset, breaking, normalize, mask, img_dim, model, seg2ranks, id_list, device, criterion, threshold, weight):
+
+    losses = []
+    count = 0
+
+    matching = 0
+    matching_0 = 0
+    matching_1 = 0
+    normalizer = 0
+    normalizer_01 = 0
+    normalizer_0 = 0
+    normalizer_1 = 0
+
+    non_match_1 = 0  # actually 0 but predicted as 1
+    non_match_0 = 0  # actually 1 but predicted as 0
+
+    segment_rank_res = dict()
+
+    # Iterate over the data loader, per segment?
+    for ii, data in enumerate(split_data_loader):
+        breakpoint()
+
+        seg_id = id_list[ii]
+        segment_ranks = seg2ranks[str(seg_id)]
+
+        for segment_rank in segment_ranks:
+            if segment_rank not in segment_rank_res:
+                segment_rank_res[segment_rank] = {'matching_0': 0.0, 'matching_1': 0.0, \
+                                                  'non_match_0': 0.0, 'non_match_1': 0.0, \
+                                                  'normalizer_01': 0.0}
+
+        if breaking and count == 5:
+            break
+
+        count += 1
+
+        segments_text = torch.tensor(data['segment'])
+
+        normalizer += segments_text.shape[0]
+
+        image_set = data['image_set']
+        no_images = image_set.shape[1]
+
+        actual_no_images = []
+
+        for s in range(image_set.shape[0]):
+            actual_no_images.append(len(image_set[s].nonzero()))
+
+        temp_batch_size = data['segment'].shape[0]
+
+        context_sum = torch.zeros(temp_batch_size, img_dim).to(device)
+
+        context_separate = torch.zeros(temp_batch_size, image_set.shape[1], img_dim).to(device)
+
+        for b in range(image_set.shape[0]):
+
+            non_pad_item = 0.0
+
+            for i in range(image_set[b].shape[0]):
+
+                img_id = str(image_set[b][i].item())
+
+                if img_id != '0':
+
+                    img_features = torch.Tensor(dataset.image_features[img_id]).to(device)
+
+                    context_sum[b] += img_features
+
+                    non_pad_item += 1
+
+                else:
+
+                    img_features = torch.zeros(img_dim).to(device)
+
+                context_separate[b][i] = img_features
+
+            context_sum[b] = context_sum[b] / non_pad_item  # average #not used in this model
+
+        lengths = data['length']
+        targets = data['targets'].view(temp_batch_size, no_images, 1).float()
+        prev_histories = data['prev_histories']
+
+        out = model(segments_text, prev_histories, lengths, context_separate, context_sum, normalize, device)
+
+        if mask:
+            out = mask_attn(out, actual_no_images, no_images, device)
+
+        sig_out = torch.sigmoid(out)
+
+        loss = criterion(out, targets)
+
+        preds = sig_out.data
+        preds[preds >= threshold] = 1
+        preds[preds < threshold] = 0
+
+        for p in range(preds.shape[0]):
+
+            if torch.all(torch.eq(preds[p], targets[p])):
+                matching += 1
+
+        for pi in range(preds.shape[0]):
+            for pj in range(preds[pi].shape[0]):
+                if targets[pi][pj] == 0:
+                    normalizer_0 += 1
+                    if preds[pi][pj] == 0:
+                        matching_0 += 1
+
+                        for segment_rank in segment_ranks:
+                            segment_rank_res[segment_rank]['matching_0'] += 1
+
+                    else:
+                        non_match_1 += 1  # target 0 but predicted as 1
+                        for segment_rank in segment_ranks:
+                            segment_rank_res[segment_rank]['non_match_1'] += 1
+
+                elif targets[pi][pj] == 1:
+                    normalizer_1 += 1
+                    if preds[pi][pj] == 1:
+                        matching_1 += 1
+                        for segment_rank in segment_ranks:
+                            segment_rank_res[segment_rank]['matching_1'] += 1
+                    else:
+                        non_match_0 += 1  # target 1 but predicted as 0
+                        for segment_rank in segment_ranks:
+                            segment_rank_res[segment_rank]['non_match_0'] += 1
+
+                normalizer_01 += 1
+
+                for segment_rank in segment_ranks:
+                    segment_rank_res[segment_rank]['normalizer_01'] += 1
+
+        losses.append(loss.item())
+
+    print('Target 0 -', matching_0, normalizer_0)
+    print('Target 1 -', matching_1, normalizer_1)
+    print('Normalizer -', normalizer_01)
+
+    print()
+
+    check_accs = (matching_0 + matching_1) / normalizer_01
+    check_accs_0 = matching_0 / normalizer_0
+    check_accs_1 = matching_1 / normalizer_1
+    print('0-matching acc:', check_accs_0)
+    print('1-matching acc:', check_accs_1)
+    print('All-matching acc:', check_accs)
+
+    print()
+
+    print('Fully matching:', matching)
+    print('Normalizer:',
+          normalizer)  # normalizer is batch size, matching is the matching of the whole pred & target
+    accs = matching / normalizer
+
+    mean_loss = np.mean(losses)
+    print('Accuracy:', accs)
+    print('Mean loss:', mean_loss)
+
+    prec_1 = matching_1 / (matching_1 + non_match_1)
+
+    recall_1 = check_accs_1
+
+    prec_0 = matching_0 / (matching_0 + non_match_0)
+    recall_0 = check_accs_0
+
+    print()
+    print('Precision 0:', prec_0)
+    print('Precision 1:', prec_1)
+
+    print('Recall 0:', recall_0)
+    print('Recall 1:', recall_1)
+
+    print()
+
+    beta = 1
+
+    f1_0 = get_f1(prec_0, recall_0, beta)
+    f1_1 = get_f1(prec_1, recall_1, beta)
+
+    f1_0_b = get_f1(prec_0, recall_0, 2)
+    f1_1_b = get_f1(prec_1, recall_1, 2)
+
+    w_f1 = (f1_0 + weight * f1_1) / (1 + weight)
+
+    print()
+    print('Weighted macro F1:', w_f1)
+    print('F1_0:', f1_0)
+    print('F1_1:', f1_1)
+
+    print()
+
+    rank_p_1 = []
+    rank_r_1 = []
+    rank_r_0 = []
+    rank_p_0 = []
+
+    for sr in segment_rank_res:
+
+        rank_res = segment_rank_res[sr]
+
+        print(sr)
+
+        sr_prec_0 = rank_res['matching_0'] / (rank_res['matching_0'] + rank_res['non_match_0']) if (rank_res[
+                                                                                                        'matching_0'] +
+                                                                                                    rank_res[
+                                                                                                        'non_match_0']) > 0 else 1
+        sr_prec_1 = rank_res['matching_1'] / (rank_res['matching_1'] + rank_res['non_match_1']) if (rank_res[
+                                                                                                        'matching_1'] +
+                                                                                                    rank_res[
+                                                                                                        'non_match_1']) > 0 else 1
+
+        sr_norm_0 = rank_res['matching_0'] + rank_res['non_match_1']  # nm1 predicted as 1 but actually 0
+        sr_norm_1 = rank_res['matching_1'] + rank_res['non_match_0']
+
+        sr_rec_0 = rank_res['matching_0'] / sr_norm_0
+        sr_rec_1 = rank_res['matching_1'] / sr_norm_1
+
+        print(sr_norm_0, sr_norm_1)
+
+        rank_p_1.append(sr_prec_1 * 100)
+        rank_r_1.append(sr_rec_1 * 100)
+        rank_p_0.append(sr_prec_0 * 100)
+        rank_r_0.append(sr_rec_0 * 100)
+
+        sr_f1_0 = get_f1(sr_prec_0, sr_rec_0, 1)
+        sr_f1_1 = get_f1(sr_prec_1, sr_rec_1, 1)
+
+        if sr_f1_0 == 'nan' or sr_f1_1 == 'nan':
+            sr_w_f1 = 'nan'
+
+        else:
+            sr_w_f1 = (sr_f1_0 + weight * sr_f1_1) / (1 + weight)
+
+        print(sr_prec_0, sr_prec_1, sr_rec_0, sr_rec_1, sr_f1_0, sr_f1_1, sr_w_f1)
+
+    return rank_p_1, rank_r_1, rank_p_0, rank_r_0, segment_rank_res

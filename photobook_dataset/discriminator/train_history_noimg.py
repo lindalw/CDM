@@ -15,8 +15,8 @@ import sys
 from os.path import dirname, abspath
 sys.path.insert(0, dirname(dirname(abspath(__file__))))
 
-from utils.HistoryDataset import HistoryDataset
-from utils.Vocab import Vocab
+from HistoryDataset import HistoryDataset
+from Vocab import Vocab
 
 import datetime
 
