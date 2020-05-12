@@ -236,7 +236,7 @@ def get_predictions(model_name='History', models_dict=False):
         elif model_name == 'No image':
             # TODO: make prediction function (see no history predict)
             rank_p_1, rank_r_1, rank_p_0, rank_r_0, segment_rank_res = train_history_noimg.gold_evaluate(test_hist_loader, testset_hist, args.breaking, args.normalize, args.mask, img_dim, model, seg2ranks, id_list, device, criterion, threshold, args.weight)
-        print(f'getting predicitons took {time.time()} seconds')
+        print(f'getting predicitons took {time.time()-time1} seconds')
     return dataset_pred
 
 
