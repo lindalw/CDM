@@ -241,10 +241,12 @@ def get_predictions(model_name='History', models_dict=False):
     return dataset_pred
 
 
-models_dict = {'History':'model_history_blind_accs_2019-02-20-14-22-23.pkl',
-            'No history': 'model_blind_accs_2019-02-17-21-18-7.pkl',
-                'No image': 'model_history_noimg_accs_2019-03-01-14-25-34.pkl'}
+if __name__ == '__main__':
 
-dataset_pred = get_predictions(model_name='No history', models_dict=models_dict)
-breakpoint()
-print('done')
+    models_dict = {'History':'model_history_blind_accs_2019-02-20-14-22-23.pkl',
+                'No history': 'model_blind_accs_2019-02-17-21-18-7.pkl',
+                    'No image': 'model_history_noimg_accs_2019-03-01-14-25-34.pkl'}
+
+    dataset_pred = get_predictions(model_name='No history', models_dict=models_dict)
+    breakpoint()
+    print('done')
