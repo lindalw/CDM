@@ -1,6 +1,8 @@
 import json
 import numpy as np
 
+import time
+
 import warnings
 warnings.simplefilter("ignore", UserWarning)
 
@@ -193,14 +195,10 @@ def get_predictions(model_name='History', models_dict=False):
     seg2ranks, id_list = seg_rank_ids()
     print('Loaded seg2ranks and idlist')
 
-    # Get parameters? Why not just use args?
-    # TODO: put in a dict?
+    # Set params
     img_dim = 2048
     threshold = 0.5
-    normalize = args.normalize
-    mask = args.mask
-    weight = args.weight
-    weights = torch.Tensor([weight]).to(device)
+    weights = torch.Tensor([args.weight]).to(device)
     batch_size = 1
     print(f"params. normalize={args.normalize}, mask={args.mask}, weight={args.weight}, weighting={args.weighting}, batchsize={batch_size}, breaking={args.breaking}")
 
@@ -223,21 +221,22 @@ def get_predictions(model_name='History', models_dict=False):
     dataset_pred = False
     with torch.no_grad():
         model.eval()
-        print('\nGold Eval')
+        print('\nStart prediction')
+        time1 = time.time()
 
         if model_name == 'No history':
             print('predict no history')
             # The predict function returns the dataset with added predicions, loss and rank
             # rank_p_1, rank_r_1, rank_p_0, rank_r_0, segment_rank_res = train_nohistory.gold_evaluate(test_loader, testset, args.breaking, normalize, mask, img_dim, model, seg2ranks, device, criterion, threshold, weight)
-            dataset_pred = train_nohistory.predict(test_loader, testset, args.breaking, normalize, mask, img_dim, model, seg2ranks, device, criterion, threshold, weight)
+            dataset_pred = train_nohistory.predict(test_loader, testset, args.breaking, args.normalize, args.mask, img_dim, model, seg2ranks, device, criterion, threshold, args.weight)
             print(dataset_pred[0])
         elif model_name == 'History':
-            # TODO: make prediction function (see no history predict)
-            rank_p_1, rank_r_1, rank_p_0, rank_r_0, segment_rank_res = train_history.gold_evaluate(test_hist_loader, testset_hist, args.breaking, normalize, mask, img_dim, model, seg2ranks, id_list, device, criterion, threshold, weight)
+            # TODO: check seg2rank in predict
+            dataset_pred = train_history.predict(test_hist_loader, testset_hist, args.breaking, args.normalize, args.mask, img_dim, model, seg2ranks, id_list, device, criterion, threshold, args.weight)
         elif model_name == 'No image':
             # TODO: make prediction function (see no history predict)
-            rank_p_1, rank_r_1, rank_p_0, rank_r_0, segment_rank_res = train_history_noimg.gold_evaluate(test_hist_loader, testset_hist, args.breaking, normalize, mask, img_dim, model, seg2ranks, id_list, device, criterion, threshold, weight)
-
+            rank_p_1, rank_r_1, rank_p_0, rank_r_0, segment_rank_res = train_history_noimg.gold_evaluate(test_hist_loader, testset_hist, args.breaking, args.normalize, args.mask, img_dim, model, seg2ranks, id_list, device, criterion, threshold, args.weight)
+        print(f'getting predicitons took {time.time()} seconds')
     return dataset_pred
 
 
@@ -247,6 +246,6 @@ if __name__ == '__main__':
                 'No history': 'model_blind_accs_2019-02-17-21-18-7.pkl',
                     'No image': 'model_history_noimg_accs_2019-03-01-14-25-34.pkl'}
 
-    dataset_pred = get_predictions(model_name='No history', models_dict=models_dict)
+    dataset_pred = get_predictions(model_name='History', models_dict=models_dict)
     breakpoint()
     print('done')

@@ -582,7 +582,7 @@ def predict(split_data_loader, dataset, breaking, normalize, mask, img_dim, mode
 
     losses = []
 
-    segment_rank_res = dict()
+    # segment_rank_res = dict()
     # ii is index of this iteration. Data contains segment, 
     for ii, data in enumerate(split_data_loader):
         # What the 'round', but then rank is of this of this segment in the chain
