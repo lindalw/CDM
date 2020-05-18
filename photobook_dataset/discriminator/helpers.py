@@ -22,7 +22,7 @@ def create_inv_list(segment_ids):
 
     return inv_list
 
-def reorder_datast(dataset_pred_hist):
+def reorder_datast(dataset_pred_hist, inv_list):
     # Create new history dataset with the segments in the same order as the no-history dataset
     dataset_pred_hist_cp = copy.deepcopy(dataset_pred_hist)
     # For each segment_id replace the hist_cp with the corresponding data from dataset_pred_hist
