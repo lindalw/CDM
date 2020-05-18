@@ -1,5 +1,6 @@
 import json
 import numpy as np
+from collections import defaultdict
 
 import time
 
@@ -64,69 +65,68 @@ def get_model(model_name, models_dict=False, device='cpu'):
     return model, epoch, loss, accuracy, args_train
 
 
-def seg_rank_ids():
+def seg_rank_ids(segments_file='data/test_segments.json', chains_file='data/test_chains.json', vocab_file='data/vocab.csv',
+                 read_files=False, seg2ranks_file='test_seg2ranks.json', id_list_file='test_seg_ids.json'):
     """
-    TODO: Get new seg2rank.json and seg_ids.json for new test.jsons from segment_ranks_ids.py
-    For if we use new test json, might need new ordered ids for the history.
-    Some stuff now commented out
+    Get new seg2rank.json and seg_ids.json for new test.jsons from segment_ranks_ids.py
     """
-    with open('test_seg2ranks.json', 'r') as file:
-        seg2ranks = json.load(file)
+    # Open the segments (containing encoded utterances)
+    # and chain file (containing the segments per chain and the target)
+    with open(segments_file, 'r') as file:
+        test_sg = json.load(file)
+    with open(chains_file, 'r') as file:
+        test_chain = json.load(file)
+    vocab = Vocab(vocab_file, 3)
 
-    with open('test_seg_ids.json','r') as file:
+    # given an img, provides the chains for which it was the target
+    # I.e. {'target_image_id': [segment_list1, segmentlist2...]}
+    target2chains = defaultdict(list)
+    for ch in test_chain:
+        target_id = ch['target']
+        segment_list = ch['segments']
+        target2chains[target_id].append(segment_list)
+
+    # segments ids, in the order in which they were encountered in the chains in the whole dataset
+    id_list = []
+    # For each chain
+    for c in test_chain:
+        segments = c['segments']
+        # Add segment id to the id_list
+        # Making sure there are no duplicates
+        for s in segments:
+            if s not in id_list:
+                id_list.append(s)
+    with open(id_list_file, 'w') as file:
+        json.dump(id_list, file)
+
+    seg2ranks = dict()
+    # For each chain
+    for c in test_chain:
+        segments = c['segments']
+        # For each segment
+        for s in range(len(segments)):
+            # Get id
+            seg_id = segments[s]
+            # And rank given in order of encountered in dataset
+            rank = s
+            if seg_id in seg2ranks:
+                seg2ranks[seg_id].append(rank)
+            else:
+                seg2ranks[seg_id] = [rank]
+
+    # all the ranks a segment is positioned
+    # in different chains (hence, there could be multiples of the same position)
+    with open(seg2ranks_file, 'w') as file:
+        json.dump(seg2ranks, file)
+
+    # Read it again, cause otherwise it doens't work for some reason
+    with open(seg2ranks_file, 'r') as file:
+        seg2ranks = json.load(file)
+    with open(id_list_file,'r') as file:
         id_list = json.load(file)  #ordered IDs for history
 
-    # # Open the segments (containing encoded utterances)
-    # # and chain file (containing the segments per chain and the target)
-    # with open('data/test_segments.json', 'r') as file:
-    #     test_sg = json.load(file)
-    # with open('data/test_chains.json', 'r') as file:
-    #     test_chain = json.load(file)
-    # vocab = Vocab('data/vocab.csv', 3)
-
-    # # given an img, provides the chains for which it was the target
-    # # I.e. {'target_image_id': [segment_list1, segmentlist2...]}
-    # target2chains = defaultdict(list)
-    # for ch in test_chain:
-    #     target_id = ch['target']
-    #     segment_list = ch['segments']
-    #     target2chains[target_id].append(segment_list)
-
-    # # segments ids, in the order in which they were encountered in the chains in the whole dataset
-    # id_list = []
-    # # For each chain
-    # for c in test_chain:
-    #     segments = c['segments']
-    #     # Add segment id to the id_list
-    #     # Making sure there are no duplicates
-    #     for s in segments:
-    #         if s not in id_list:
-    #             id_list.append(s)
-    # with open('test_seg_ids.json', 'w') as file:
-    #     json.dump(id_list, file)
-
-
-    # seg2ranks = dict()
-    # # For each chain
-    # for c in test_chain:
-    #     segments = c['segments']
-    #     # For each segment
-    #     for s in range(len(segments)):
-    #         # Get id
-    #         seg_id = segments[s]
-    #         # And rank given in order of encountered in dataset
-    #         rank = s
-    #         if seg_id in seg2ranks:
-    #             seg2ranks[seg_id].append(rank)
-    #         else:
-    #             seg2ranks[seg_id] = [rank]
-
-    # # all the ranks a segment is positioned
-    # # in different chains (hence, there could be multiples of the same position)
-    # with open('test_seg2ranks.json', 'w') as file:
-    #     json.dump(seg2ranks, file)
-
     return seg2ranks, id_list
+
 
 def get_BCEloss_funct(weighting, pos_weight):
     if weighting:
@@ -191,7 +191,7 @@ def get_predictions(model_name='History', models_dict=False):
     vocab = Vocab(os.path.join(args.data_path, args.vocab_file), 3)
     print('vocab len', len(vocab))
 
-    # TODO: Get new seg2rank.json and seg_ids.json for new test.jsons from segment_ranks_ids.py
+    # Get new seg2rank.json and seg_ids.json for new test.jsons from segment_ranks_ids.py
     seg2ranks, id_list = seg_rank_ids()
     print('Loaded seg2ranks and idlist')
 
@@ -246,6 +246,6 @@ if __name__ == '__main__':
                 'No history': 'model_blind_accs_2019-02-17-21-18-7.pkl',
                     'No image': 'model_history_noimg_accs_2019-03-01-14-25-34.pkl'}
 
-    dataset_pred = get_predictions(model_name='History', models_dict=models_dict)
+    dataset_pred = get_predictions(model_name='No history', models_dict=models_dict)
     breakpoint()
     print('done')
