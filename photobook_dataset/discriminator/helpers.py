@@ -106,7 +106,7 @@ def add_chains_rounds(dataset_pred_no_hist, dataset_pred_hist_cp):
             dataset_pred_no_hist[seg_ids[i]]['chains'].append(chain_ind)
             dataset_pred_hist_cp[seg_ids[i]]['chains'].append(chain_ind)
 
-            # Add the round of the segment in the chain
+            # Add the segment ids in the chain
             dataset_pred_no_hist[seg_ids[i]]['chain_hist'].append(chain_test_set.chains[chain_ind]['segments'])
             dataset_pred_hist_cp[seg_ids[i]]['chain_hist'].append(chain_test_set.chains[chain_ind]['segments'])
 
