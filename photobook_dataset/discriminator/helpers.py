@@ -22,15 +22,99 @@ def create_inv_list(segment_ids):
 
     return inv_list
 
-def reorder_dataset(dataset_pred_hist, inv_list):
+def reorder_datast(dataset_pred_hist, inv_list):
     # Create new history dataset with the segments in the same order as the no-history dataset
     dataset_pred_hist_cp = copy.deepcopy(dataset_pred_hist)
     # For each segment_id replace the hist_cp with the corresponding data from dataset_pred_hist
     for i in range(len(inv_list)):
         # Replace each key (cause you can't replace entire dicts here apparently...)
-        for key in list(dataset_pred_hist[0]):
+        for key in list(dataset_pred_hist[i]):
             dataset_pred_hist_cp[i][key] = dataset_pred_hist[inv_list[i]][key]
 
     return dataset_pred_hist_cp
+
+
+def get_pred_dataframe(dataset_pred_no_hist, dataset_pred_hist_cp):
+    """Get dataframe with the predictions per segment id of the history or no history dataset"""
+    datasets = {"No history":dataset_pred_no_hist, "History": dataset_pred_hist_cp}
+    dataframe = {i:{} for i in range(len(dataset_pred_no_hist))}
+    print(dataset_pred_hist_cp[1]['segment'], dataset_pred_no_hist[1]['segment'])
+
+    for data_key in datasets:
+        print(data_key)
+        dataset = datasets[data_key]
+        # loop through all 6801 segments aka predictions
+        for i in tqdm(range(len(dataset))):
+            # If there is only one target and not more than 1 prediction
+            if (len(dataset[i]['targets']) == 1 and
+                dataset[i]['preds'].sum() <= 1):
+                # If it is wrongly predicted or no image was predicted
+                if dataset[i]['preds'].argmax() != dataset[i]['targets'][0] or dataset[i]['preds'].max()==0:
+                    dataframe[i][data_key]=0
+                # If target and prediction are the same, set prediction at 1
+                else:
+                    dataframe[i][data_key]=1
+    return dataframe
+
+
+def get_conditions_inds(dataframe):
+    """Sort segment indices of the dataframe with history and no history model in the conditions"""
+    # History, no history
+    conditions_inds = {'hT_nhT':[], 'hT_nhF':[], 'hF_nhT':[], 'hF_nhF':[], 'only_h':[], 'only_nh':[], 'nothing':[]}
+    for ind in dataframe:
+        # For all indices with the same
+        if 'History' in dataframe[ind] and 'No history' in dataframe[ind]:
+            if dataframe[ind]['History'] == 1 and dataframe[ind]['No history'] == 1:
+                conditions_inds['hT_nhT'].append(ind)
+
+            elif dataframe[ind]['History'] == 1 and dataframe[ind]['No history'] == 0:
+                conditions_inds['hT_nhF'].append(ind)
+
+            elif dataframe[ind]['History'] == 0 and dataframe[ind]['No history'] == 1:
+                conditions_inds['hF_nhT'].append(ind)
+
+            elif dataframe[ind]['History'] == 0 and dataframe[ind]['No history'] == 0:
+                conditions_inds['hF_nhF'].append(ind)
+
+        elif 'History' in dataframe[ind]:
+            conditions_inds['only_h'].append(ind)
+
+        elif 'No history' in dataframe[ind]:
+            conditions_inds['only_nh'].append(ind)
+        else:
+            conditions_inds['nothing'].append(ind)
+    return conditions_inds
+
+
+def add_chains_rounds(dataset_pred_no_hist, dataset_pred_hist_cp):
+    # Create empty lists for the chain ids
+    for data_ind in range(len(dataset_pred_hist_cp)):
+        dataset_pred_hist_cp[data_ind]['chains'] = []
+        dataset_pred_hist_cp[data_ind]['chain_hist'] = []
+        dataset_pred_hist_cp[data_ind]['rounds'] = []
+
+    for data_ind in range(len(dataset_pred_no_hist)):
+        dataset_pred_no_hist[data_ind]['chains'] = []
+        dataset_pred_no_hist[data_ind]['chain_hist'] = []
+        dataset_pred_no_hist[data_ind]['rounds'] = []
+
+    # For each chain, add the chain index to the segment id in the dataset to which they belong
+    for chain_ind in range(len(chain_test_set.chains)):
+        seg_ids = chain_test_set.chains[chain_ind]['segments']
+        for i in range(len(seg_ids)):
+            # Add chain index
+            dataset_pred_no_hist[seg_ids[i]]['chains'].append(chain_ind)
+            dataset_pred_hist_cp[seg_ids[i]]['chains'].append(chain_ind)
+
+            # Add the round of the segment in the chain
+            dataset_pred_no_hist[seg_ids[i]]['chain_hist'].append(chain_test_set.chains[chain_ind]['segments'])
+            dataset_pred_hist_cp[seg_ids[i]]['chain_hist'].append(chain_test_set.chains[chain_ind]['segments'])
+
+            # Add the round of the segment in the chain
+            dataset_pred_no_hist[seg_ids[i]]['rounds'].append(i)
+            dataset_pred_hist_cp[seg_ids[i]]['rounds'].append(i)
+
+    return dataset_pred_no_hist, dataset_pred_hist_cp
+
 
 get_seg_ids()
