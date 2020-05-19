@@ -86,7 +86,7 @@ def get_conditions_inds(dataframe):
     return conditions_inds
 
 
-def add_chains_rounds(dataset_pred_no_hist, dataset_pred_hist_cp):
+def add_chains_rounds(dataset_pred_no_hist, dataset_pred_hist_cp, chain_test_set):
     # Create empty lists for the chain ids
     for data_ind in range(len(dataset_pred_hist_cp)):
         dataset_pred_hist_cp[data_ind]['chains'] = []
@@ -116,5 +116,25 @@ def add_chains_rounds(dataset_pred_no_hist, dataset_pred_hist_cp):
 
     return dataset_pred_no_hist, dataset_pred_hist_cp
 
+def get_condition_seg_hist(conditions_inds, dataset_pred_hist_cp):
+    condition_seg_hist = {}
+    # For each condition
+    for condition in conditions_inds:
+        condition_seg_hist[condition] = {}
+        # Iterate over the indices in this condition
+        for seg_id in conditions_inds[condition]:
+            condition_seg_hist[condition][seg_id] = {}
+            # For each chain that this segment belongs to
+            # if the segment is not the first round in that chain
+            for chain_i in range(len(dataset_pred_hist_cp[seg_id]['chains'])):
+                if dataset_pred_hist_cp[seg_id]['rounds'][chain_i] > 0:
+                    chain_ind = dataset_pred_hist_cp[seg_id]['chains'][chain_i]
+                    condition_seg_hist[condition][seg_id][chain_ind] = {}
+                    # Add first segment, and segment
+                    first_id = dataset_pred_hist_cp[seg_id]['chain_hist'][chain_i][0]
+                    condition_seg_hist[condition][seg_id][chain_ind]['first_id'] = first_id
+                    condition_seg_hist[condition][seg_id][chain_ind]['first_seg'] = dataset_pred_hist_cp[first_id]['segment']
+                    condition_seg_hist[condition][seg_id][chain_ind]['current_id'] = seg_id
+                    condition_seg_hist[condition][seg_id][chain_ind]['current_seg'] = dataset_pred_hist_cp[seg_id]['segment']
 
-get_seg_ids()
+    return condition_seg_hists
