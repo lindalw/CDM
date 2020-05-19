@@ -175,7 +175,7 @@ def get_history_dataset(batch_size=1, data_dir='data/', segment_file='test_segme
     return testset_hist, test_hist_loader
 
 
-def get_predictions(model_name='History', models_dict=False):
+def get_predictions(model_name='History', models_dict=False, split='test'):
     # Set device
     if torch.cuda.is_available():
         device = torch.device('cuda')
@@ -209,13 +209,13 @@ def get_predictions(model_name='History', models_dict=False):
     print(f"Dataparams. data_dir={args.data_path}, segmentfile={args.segment_file}, vectorfile={args.vectors_file}, chains_file={args.chains_file}")
     # testset, test_loader = get_segment_dataset(data_dir='data/', segment_file='segments.json', vectors_file='vectors.json', split='test')
     testset, test_loader = get_segment_dataset(batch_size=batch_size, data_dir=args.data_path, segment_file=args.segment_file,
-                                                 vectors_file=args.vectors_file, split='test', device=device)
+                                                 vectors_file=args.vectors_file, split=split, device=device)
 
     # Get history dataset
     # testset_hist, test_hist_loader = get_history_dataset(batch_size=1, data_dir='data/', segment_file='test_segments.json', vectors_file='vectors.json', chain_file='test_chains.json', split='test', device='cpu')
-    testset_hist, test_hist_loader = get_history_dataset(batch_size=batch_size, data_dir=args.data_path, segment_file='test_' + args.segment_file,
-                                                         vectors_file=args.vectors_file, chain_file='test_' + args.chains_file, 
-                                                         split='test', device=device)
+    testset_hist, test_hist_loader = get_history_dataset(batch_size=batch_size, data_dir=args.data_path, segment_file=split+'_' + args.segment_file,
+                                                         vectors_file=args.vectors_file, chain_file=split+'_' + args.chains_file, 
+                                                         split=split, device=device)
 
     # TODO: Change eval to just the predictions
     dataset_pred = False
@@ -233,9 +233,9 @@ def get_predictions(model_name='History', models_dict=False):
         elif model_name == 'History':
             # TODO: check seg2rank in predict
             dataset_pred = train_history.predict(test_hist_loader, testset_hist, args.breaking, args.normalize, args.mask, img_dim, model, seg2ranks, id_list, device, criterion, threshold, args.weight)
-        elif model_name == 'No image':
-            # TODO: make prediction function (see no history predict)
-            rank_p_1, rank_r_1, rank_p_0, rank_r_0, segment_rank_res = train_history_noimg.gold_evaluate(test_hist_loader, testset_hist, args.breaking, args.normalize, args.mask, img_dim, model, seg2ranks, id_list, device, criterion, threshold, args.weight)
+        # elif model_name == 'No image':
+        #     # TODO: make prediction function (see no history predict)
+        #     rank_p_1, rank_r_1, rank_p_0, rank_r_0, segment_rank_res = train_history_noimg.gold_evaluate(test_hist_loader, testset_hist, args.breaking, args.normalize, args.mask, img_dim, model, seg2ranks, id_list, device, criterion, threshold, args.weight)
         print(f'getting predicitons took {time.time()-time1} seconds')
     return dataset_pred
 
@@ -243,9 +243,10 @@ def get_predictions(model_name='History', models_dict=False):
 if __name__ == '__main__':
 
     models_dict = {'History':'model_history_blind_accs_2019-02-20-14-22-23.pkl',
-                'No history': 'model_blind_accs_2019-02-17-21-18-7.pkl',
-                    'No image': 'model_history_noimg_accs_2019-03-01-14-25-34.pkl'}
+                'No history': 'model_blind_accs_2019-02-17-21-18-7.pkl'}
+                    # 'No image': 'model_history_noimg_accs_2019-03-01-14-25-34.pkl'}
+    split = 'test'
 
-    dataset_pred = get_predictions(model_name='No history', models_dict=models_dict)
+    dataset_pred = get_predictions(model_name='No history', models_dict=models_dict, split=split)
     breakpoint()
     print('done')
