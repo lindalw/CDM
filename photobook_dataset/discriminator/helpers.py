@@ -2,10 +2,9 @@ import copy
 import pandas as pd
 import json
 
-def get_seg_ids():
-    # pass
+def get_seg_ids(segment_ids_file='segment_ids_test.json'):
     # Load in the segment ids that tell us which segment belongs to which index in the history dataset
-    with open('segment_ids_test.json') as json_file:
+    with open(segment_ids_file) as json_file:
         segment_ids = json.load(json_file)
 
     return segment_ids
