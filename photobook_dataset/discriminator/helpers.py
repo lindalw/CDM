@@ -139,8 +139,10 @@ def get_condition_seg_hist(conditions_inds, dataset_pred_hist_cp):
                     condition_seg_hist[condition][seg_id][chain_ind]['first_seg'] = dataset_pred_hist_cp[first_id]['segment']
                     condition_seg_hist[condition][seg_id][chain_ind]['current_id'] = seg_id
                     condition_seg_hist[condition][seg_id][chain_ind]['current_seg'] = dataset_pred_hist_cp[seg_id]['segment']
+                    condition_seg_hist[condition][seg_id][chain_ind]['round'] = dataset_pred_hist_cp[seg_id]['rounds'][chain_i]
 
     return condition_seg_hist
+
 
 def get_pred_datasets(split='test'):
     """
@@ -184,3 +186,29 @@ def get_pred_datasets(split='test'):
     condition_seg_hist = get_condition_seg_hist(conditions_inds, dataset_pred_hist_cp)
 
     return dataset_pred_no_hist, dataset_pred_hist_cp, conditions_inds, condition_seg_hist
+
+
+def get_accuracies(conditions_inds, dataframe):
+    """Returns the accuracies per condition"""
+    results_hist = {condition:[] for condition in conditions_inds}
+    results_nohist = {condition:[] for condition in conditions_inds}
+
+    # Now for all segements, also those without history (i.e. in round 1)
+    # Add 1 to the condition list if it was correctly predicted, 0 if incorrect
+    for condition in conditions_inds:
+        for ind in conditions_inds[condition]:
+            if "History" in dataframe[ind]:
+                results_hist[condition].append(dataframe[ind]['History'])
+            if "No history" in dataframe[ind]:
+                results_nohist[condition].append(dataframe[ind]['No history'])
+                
+    # Get the accuracies per condition
+    accs_hist = {condition:[] for condition in conditions_inds}
+    accs_nohist = {condition:[] for condition in conditions_inds}
+    for condition in results_hist:
+        res = np.array(results_hist[condition])
+        accs_hist[condition] = res.sum()/len(res)
+        res = np.array(results_nohist[condition])
+        accs_nohist[condition] = res.sum()/len(res)
+    
+    return results_hist, results_nohist, accs_hist, accs_nohist

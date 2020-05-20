@@ -141,6 +141,7 @@ def get_segment_dataset(batch_size=1, data_dir='data/', segment_file='segments.j
     dataset['segment']: encoded segment (e.g. [3, 19, 5, 23])
     dataset['image_set']: 
     """
+    print('segment dataset with', segment_file, vectors_file, chain_file, split)
     testset = SegmentDataset(
         data_dir=data_dir,
         segment_file=segment_file,
@@ -159,6 +160,7 @@ def get_history_dataset(batch_size=1, data_dir='data/', segment_file='test_segme
     """
     TODO: understand the history dataset
     """
+    print('history dataset with', segment_file, vectors_file, chain_file, split)
     testset_hist = HistoryDataset(
         data_dir=data_dir,
         segment_file=segment_file,

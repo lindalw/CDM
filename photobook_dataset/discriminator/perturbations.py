@@ -1,7 +1,7 @@
 import numpy as np
 import json
 
-def chain_shuffle(chain_copy, output=False):
+def chain_shuffle(chain_copy, chain_file='data/test_shuffle_chains.json', segment_file='data/test_shuffle_segments.json', output=True):
     """
     Shuffle the segments in a chain
     
@@ -17,7 +17,12 @@ def chain_shuffle(chain_copy, output=False):
     
     # Write new chains file
     if output:
-        with open(output, 'w') as json_file:
+        with open(chain_file, 'w') as json_file:
             json.dump(chain_copy, json_file)
+        # Keep segment file the same
+        with open('data/test_segments.json') as json_file:
+            segments = json.load(json_file)
+        with open(segment_file, 'w') as json_file:
+            json.dump(segments, json_file)
     
-    return chain_copy
+    return chain_copy, segments
