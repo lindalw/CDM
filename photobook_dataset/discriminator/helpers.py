@@ -2,6 +2,7 @@ import copy
 import pandas as pd
 import json
 from tqdm import tqdm
+import numpy as np
 
 from get_predictions import get_predictions
 from ChainDataset import ChainDataset
@@ -185,7 +186,7 @@ def get_pred_datasets(split='test'):
 
     condition_seg_hist = get_condition_seg_hist(conditions_inds, dataset_pred_hist_cp)
 
-    return dataset_pred_no_hist, dataset_pred_hist_cp, conditions_inds, condition_seg_hist
+    return dataset_pred_no_hist, dataset_pred_hist_cp, conditions_inds, condition_seg_hist, dataframe
 
 
 def get_accuracies(conditions_inds, dataframe):

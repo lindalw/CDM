@@ -141,7 +141,7 @@ def get_segment_dataset(batch_size=1, data_dir='data/', segment_file='segments.j
     dataset['segment']: encoded segment (e.g. [3, 19, 5, 23])
     dataset['image_set']: 
     """
-    print('segment dataset with', segment_file, vectors_file, chain_file, split)
+    print('segment dataset with', segment_file, vectors_file, split)
     testset = SegmentDataset(
         data_dir=data_dir,
         segment_file=segment_file,
@@ -194,7 +194,8 @@ def get_predictions(model_name='History', models_dict=False, split='test'):
     print('vocab len', len(vocab))
 
     # Get new seg2rank.json and seg_ids.json for new test.jsons from segment_ranks_ids.py
-    seg2ranks, id_list = seg_rank_ids()
+    # TODO: check if this is going okay
+    seg2ranks, id_list = seg_rank_ids(segments_file='data/'+split+'_' + args.segment_file, chains_file='data/'+split+'_' + args.chains_file)
     print('Loaded seg2ranks and idlist')
 
     # Set params
