@@ -213,3 +213,43 @@ def get_accuracies(conditions_inds, dataframe):
         accs_nohist[condition] = res.sum()/len(res)
     
     return results_hist, results_nohist, accs_hist, accs_nohist
+
+
+def get_img_dict(chain_test_set):
+    """
+    Return a dictionary of
+    {img_id:{'round_id':'segments':[segids],
+                        'lengths':[seglengths],
+                        'game_ids':[gameids]}}
+    where img_id is the image id of the target of the segments
+    round_id is the round/rank, i.e. the i'th time the image is being talked about
+    segid is the segment id
+    seglength is the length of the segment with the corresponding index
+    gameid is the gameid to which the segment with the corresponding index belongs
+    """
+    img_dict = {}
+    chains = chain_test_set.chains
+    # Get segments, lengths and gameids
+    for chain_id in range(len(chains)):
+        image_ind = chains[chain_id]['target']
+        game_id = chains[chain_id]['game_id']
+        # Add target image index to the img_dict    
+        if image_ind not in img_dict:
+            img_dict[image_ind] = {}
+
+        # Iterate over the rounds/segments
+        for round_ind in range(len(chains[chain_id]['segments'])):
+
+            # Add round to the dict for this target image
+            if round_ind not in img_dict[image_ind]:
+                img_dict[image_ind][round_ind] = {'segments':[],
+                                                  'lengths':[],
+                                                 'game_ids':[]}
+
+            # Add segment with the length and gameid info to this round dict
+            img_dict[image_ind][round_ind]['segments'].append(chains[chain_id]['segments'][round_ind])
+            img_dict[image_ind][round_ind]['lengths'].append(chains[chain_id]['lengths'][round_ind])
+            img_dict[image_ind][round_ind]['game_ids'].append(game_id)
+    return img_dict
+
+    
