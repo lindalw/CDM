@@ -148,7 +148,7 @@ def get_condition_seg_hist(conditions_inds, dataset_pred_hist_cp):
 def get_pred_datasets(split='test'):
     """
     Get the dataset of predictions for the experiment 'split'.
-    Using the experiment datafiles; {split}_segments.json, {split}_segments.json
+    Using the experiment datafiles; {split}_segments.json, {split}_segments.json 
     """
     models_dict = {'History':'model_history_blind_accs_2019-02-20-14-22-23.pkl',
                 'No history': 'model_blind_accs_2019-02-17-21-18-7.pkl',
@@ -156,18 +156,14 @@ def get_pred_datasets(split='test'):
 
     # Get predictions for this experiment (split) files
     dataset_pred_no_hist = get_predictions(model_name='No history', models_dict=models_dict, split=split)
-
     # History dataset takes about 20 minutes to run
     dataset_pred_hist = get_predictions(model_name='History', models_dict=models_dict, split=split)
 
     # Load in the segment ids that tell us which segment belongs to which index in the history dataset
-
     # Segment_ids_file segment_ids_test.json is created when predicting dataset_pred_hist
     segment_ids = get_seg_ids(segment_ids_file='segment_ids_test.json')
-
     # Get inverted dict {seg_id:dataset_ind}
     inv_list = create_inv_list(segment_ids)
-
     # Create new history dataset with the segments in the same order as the no-history dataset
     dataset_pred_hist_cp = reorder_datast(dataset_pred_hist, inv_list)
 
@@ -180,13 +176,8 @@ def get_pred_datasets(split='test'):
         split=split
     )
     dataset_pred_no_hist, dataset_pred_hist_cp = add_chains_rounds(dataset_pred_no_hist, dataset_pred_hist_cp, chain_test_set)
-
-    dataframe = get_pred_dataframe(dataset_pred_no_hist, dataset_pred_hist_cp)
-    conditions_inds = get_conditions_inds(dataframe)
-
-    condition_seg_hist = get_condition_seg_hist(conditions_inds, dataset_pred_hist_cp)
-
-    return dataset_pred_no_hist, dataset_pred_hist_cp, conditions_inds, condition_seg_hist, dataframe
+    
+    return dataset_pred_no_hist, dataset_pred_hist_cp
 
 
 def get_accuracies(conditions_inds, dataframe):
@@ -252,4 +243,75 @@ def get_img_dict(chain_test_set):
             img_dict[image_ind][round_ind]['game_ids'].append(game_id)
     return img_dict
 
-    
+
+def get_img_dict(chains):
+    """
+    chains is chain_test_set.chains
+    Return a dictionary of
+    {img_id:{'round_id':'segments':[segids],
+                        'lengths':[seglengths],
+                        'game_ids':[gameids]}}
+    where img_id is the image id of the target of the segments
+    round_id is the round/rank, i.e. the i'th time the image is being talked about
+    segid is the segment id
+    seglength is the length of the segment with the corresponding index
+    gameid is the gameid to which the segment with the corresponding index belongs
+    """
+    img_dict = {}
+    # Get segments, lengths and gameids
+    for chain_id in range(len(chains)):
+        image_ind = chains[chain_id]['target']
+        game_id = chains[chain_id]['game_id']
+        # Add target image index to the img_dict    
+        if image_ind not in img_dict:
+            img_dict[image_ind] = {}
+
+        # Iterate over the rounds/segments
+        for round_ind in range(len(chains[chain_id]['segments'])):
+
+            # Add round to the dict for this target image
+            if round_ind not in img_dict[image_ind]:
+                img_dict[image_ind][round_ind] = {'segments':[],
+                                                  'lengths':[],
+                                                 'game_ids':[],
+                                                 'chain_ids':[],
+                                                 'chain_ids_shuf':[]}
+
+            # Add segment with the length and gameid info to this round dict
+            img_dict[image_ind][round_ind]['segments'].append(chains[chain_id]['segments'][round_ind])
+            img_dict[image_ind][round_ind]['lengths'].append(chains[chain_id]['lengths'][round_ind])
+            img_dict[image_ind][round_ind]['game_ids'].append(game_id)
+            img_dict[image_ind][round_ind]['chain_ids'].append(chain_id)
+            img_dict[image_ind][round_ind]['chain_ids_shuf'].append(chain_id)
+
+    return img_dict
+
+
+def pert_sanity_check(test_chains_exp='data/test_shuffle_chains.json', test_segm_exp='data/test_shuffle_segments.json',
+                      test_chains='data/test_chains.json', test_segm='data/test_segments.json', n=3):
+    """
+    Prints the first three segments/chains from the original test set and the experiment set
+    """
+    print('Sanity check')
+    with open(test_chains_exp) as json_file:
+        data_chain_shuf = json.load(json_file)
+    with open(test_chains) as json_file:
+        data_chain = json.load(json_file)
+
+
+    with open(test_segm_exp) as json_file:
+        data_seg_shuf = json.load(json_file)
+    with open(test_segm) as json_file:
+        data_seg = json.load(json_file)
+
+    for i in range(n):
+        print('original chains')
+        print(data_chain[i])
+        print('experiment chains')
+        print(data_chain_shuf[i])
+        print()
+        print('original segments')
+        print(data_seg[i])
+        print('experiment segments')
+        print(data_seg_shuf[i])
+        print("-----------------------------------")
