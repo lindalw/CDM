@@ -215,6 +215,36 @@ def get_accuracies(conditions_inds, dataframe):
     return results_hist, results_nohist, accs_hist, accs_nohist
 
 
+def get_accuracies_seg(conditions_inds, dataframe, changed_seg_ids):
+    """Returns the accuracies per condition
+    Only uses segments with their id in changed_seg_ids"""
+    results_hist = {condition:[] for condition in conditions_inds}
+    results_nohist = {condition:[] for condition in conditions_inds}
+
+    # Now for all segements, also those without history (i.e. in round 1)
+    # Add 1 to the condition list if it was correctly predicted, 0 if incorrect
+    for condition in conditions_inds:
+        for ind in conditions_inds[condition]:
+            # Only use the segments that have a changed history
+            if ind not in changed_seg_ids:
+                continue
+            if "History" in dataframe[ind]:
+                results_hist[condition].append(dataframe[ind]['History'])
+            if "No history" in dataframe[ind]:
+                results_nohist[condition].append(dataframe[ind]['No history'])
+                
+    # Get the accuracies per condition
+    accs_hist = {condition:[] for condition in conditions_inds}
+    accs_nohist = {condition:[] for condition in conditions_inds}
+    for condition in results_hist:
+        res = np.array(results_hist[condition])
+        accs_hist[condition] = res.sum()/len(res)
+        res = np.array(results_nohist[condition])
+        accs_nohist[condition] = res.sum()/len(res)
+    
+    return results_hist, results_nohist, accs_hist, accs_nohist
+
+
 def get_img_dict(chain_test_set):
     """
     Return a dictionary of
@@ -324,3 +354,14 @@ def pert_sanity_check(test_chains_exp='data/test_shuffle_chains.json', test_segm
         print('experiment segments')
         print(data_seg_shuf[i])
         print("-----------------------------------")
+
+
+def check_lengths(changed_seg_ids, conditions_inds):
+    """Return a dictionary of the number of segments that were changed per condition"""
+    lengths = {'hT_nhT':0, 'hT_nhF':0,'hF_nhT':0,'hF_nhF':0,'only_h':0,'only_nh':0,'nothing':0}
+    for seg_id in changed_seg_ids:
+        for condition in conditions_inds:
+            if seg_id in conditions_inds[condition]:
+                lengths[condition]+=1
+                break
+    return lengths
