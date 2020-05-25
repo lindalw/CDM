@@ -64,7 +64,7 @@ def get_pred_dataframe(dataset_pred_no_hist, dataset_pred_hist_cp):
 def get_conditions_inds(dataframe):
     """Sort segment indices of the dataframe with history and no history model in the conditions"""
     # History, no history
-    conditions_inds = {'hT_nhT':[], 'hT_nhF':[], 'hF_nhT':[], 'hF_nhF':[], 'only_h':[], 'only_nh':[], 'nothing':[]}
+    conditions_inds = {'hT_nhT':[], 'hT_nhF':[], 'hF_nhT':[], 'hF_nhF':[], 'only_h':[], 'only_nh':[], 'nothing':[], 'all':[], 'h_nh_all':[]}
     for ind in dataframe:
         # For all indices with the same
         if 'History' in dataframe[ind] and 'No history' in dataframe[ind]:
@@ -79,6 +79,8 @@ def get_conditions_inds(dataframe):
 
             elif dataframe[ind]['History'] == 0 and dataframe[ind]['No history'] == 0:
                 conditions_inds['hF_nhF'].append(ind)
+            # For all segments that were predicted in history and no history
+            conditions_inds['h_nh_all'].append(ind)
 
         elif 'History' in dataframe[ind]:
             conditions_inds['only_h'].append(ind)
@@ -87,10 +89,18 @@ def get_conditions_inds(dataframe):
             conditions_inds['only_nh'].append(ind)
         else:
             conditions_inds['nothing'].append(ind)
+        # For all segments together
+        conditions_inds['all'].append(ind)
+
     return conditions_inds
 
 
 def add_chains_rounds(dataset_pred_no_hist, dataset_pred_hist_cp, chain_test_set):
+    """
+    Create a dataset dictionary with per segment the chain ids to which it belongs, including
+    the round in that chain that is occurs in and all the segment ids of that chain
+    """
+    
     # Create empty lists for the chain ids
     for data_ind in range(len(dataset_pred_hist_cp)):
         dataset_pred_hist_cp[data_ind]['chains'] = []
@@ -179,6 +189,7 @@ def get_pred_datasets(split='test'):
         vectors_file='vectors.json',
         split=split
     )
+    # Get dataset with for each
     dataset_pred_no_hist, dataset_pred_hist_cp = add_chains_rounds(dataset_pred_no_hist, dataset_pred_hist_cp, chain_test_set)
 
     dataframe = get_pred_dataframe(dataset_pred_no_hist, dataset_pred_hist_cp)
@@ -358,7 +369,7 @@ def pert_sanity_check(test_chains_exp='data/test_shuffle_chains.json', test_segm
 
 def check_lengths(changed_seg_ids, conditions_inds):
     """Return a dictionary of the number of segments that were changed per condition"""
-    lengths = {'hT_nhT':0, 'hT_nhF':0,'hF_nhT':0,'hF_nhF':0,'only_h':0,'only_nh':0,'nothing':0}
+    lengths = {'hT_nhT':0, 'hT_nhF':0,'hF_nhT':0,'hF_nhF':0,'only_h':0,'only_nh':0,'nothing':0, 'all':0, 'h_nh_all':0}
     for seg_id in changed_seg_ids:
         for condition in conditions_inds:
             if seg_id in conditions_inds[condition]:
