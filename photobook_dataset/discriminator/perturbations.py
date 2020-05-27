@@ -33,6 +33,8 @@ def chain_shuffle(chain_copy, chain_file='data/test_shuffle_chains.json', segmen
 def pert_exchange_games(chain_copy, round_id, chain_file_start='data/test_games_', segment_file_start='data/test_games_', output=True):
     """ 
     Chain_copy is a deepcopy of chain_test_set.chains
+    Changes the segements in round round_id for another segment on the same image another game (including its target). 
+    Returns the new chain, segment and list of the segment ids that were changed
     """
     
     chain_test_game_n, changed_seg_ids = exchange_games(chain_copy, round_id)
@@ -54,7 +56,7 @@ def exchange_games(chains, round_id):
     chains is chain_test_set.chains
     round_id is the round that we want to change
 
-    Changes the segements in round round_id for another segment on another image the same game (including its target). 
+    Changes the segements in round round_id for another segment on the same image another game (including its target). 
     
     Returns the new chain test set and the segment indices of the new segments in the chains.
     """
@@ -71,7 +73,7 @@ def exchange_games(chains, round_id):
     # Iterate over the indices in the chain set
     for chain_id in range(len(chain_test_game_n)):
         img_id = chain_test_game_n[chain_id]['target']
-        game_id_cur = chain_test_game_n[chain_id]['game_id']
+        # game_id_cur = chain_test_game_n[chain_id]['game_id']
 
         # Check if there are at least round_id rounds in this chain
         if len(chain_test_game_n[chain_id]['segments']) <= round_id:
@@ -116,7 +118,8 @@ def exchange_images(chains, round_id):
     """
     chains is chain_test_set.chains
     round_id is the round that we want to change
-    
+
+    Changes the segements in round round_id for another segment of the same game but another image (including its target). 
     Returns the new chain test set and the segment indices of the new segments in the chains.
     """
     # Get a deepcopy of the chain list
